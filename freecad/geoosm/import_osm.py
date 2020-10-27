@@ -1,13 +1,28 @@
-# -------------------------------------------------
-# -- osm map importer
-# --
-# -- microelly 2016 v 0.4
-# -- Bernd Hahnebach <bernd@bimstatik.org> 2020 v 0.5
-# --
-# -- GNU Lesser General Public License (LGPL)
-# -------------------------------------------------
-"""import data from openstreetmap"""
-
+# **************************************************************************
+# *                                                                        *
+# *  Copyright (c) 2016 microelly <>                                       *
+# *  Copyright (c) 2020 Bernd Hahnebach <bernd@bimstatik.org               *
+# *                                                                        *
+# *  This program is free software; you can redistribute it and/or modify  *
+# *  it under the terms of the GNU Lesser General Public License (LGPL)    *
+# *  as published by the Free Software Foundation; either version 2 of     *
+# *  the License, or (at your option) any later version.                   *
+# *  for detail see the LICENCE text file.                                 *
+# *                                                                        *
+# *  This program is distributed in the hope that it will be useful,       *
+# *  but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+# *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+# *  GNU Library General Public License for more details.                  *
+# *                                                                        *
+# *  You should have received a copy of the GNU Library General Public     *
+# *  License along with this program; if not, write to the Free Software   *
+# *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
+# *  USA                                                                   *
+# *                                                                        *
+# **************************************************************************
+"""
+Import data from OpenStreetMap
+"""
 
 # http://api.openstreetmap.org/api/0.6/map?bbox=11.74182,50.16413,11.74586,50.16561
 # http://api.openstreetmap.org/api/0.6/way/384013089
@@ -28,11 +43,6 @@ import FreeCAD as App
 import MeshPart
 import Part
 
-from freecad.trails.geoimport.say import say
-from freecad.trails.geoimport.say import sayErr
-from freecad.trails.geoimport.say import sayexc
-from freecad.trails.geoimport.say import sayW
-
 from freecad.trails.geoimport import inventortools
 from freecad.trails.geoimport import my_xmlparser
 from freecad.trails.geoimport import transversmercator
@@ -41,13 +51,18 @@ from freecad.trails.geoimport import transversmercator
 # from .get_elevation import get_heights_srtm_tkrajina as get_height_list
 from .get_elevation import get_height_srtm4 as get_height_single
 from .get_elevation import get_heights_srtm4 as get_height_list
+from freecad.trails.geoimport.say import say
+from freecad.trails.geoimport.say import sayErr
+from freecad.trails.geoimport.say import sayexc
+from freecad.trails.geoimport.say import sayW
 
 
 # TODO all module, make run in on non gui too
 
 
 def organize_doc(doc):
-    """create groups for the different object types
+    """
+    Create groups for the different object types
     GRP_highways, GRP_building, GRP_landuse
     """
     highways = doc.addObject(
@@ -67,19 +82,19 @@ def organize_doc(doc):
         "GRP_pathes"
     )
 
-    for oj in doc.Objects:
-        if oj.Label.startswith("building"):
-            buildings.addObject(oj)
-            # oj.ViewObject.Visibility=False
-        if oj.Label.startswith("highway") or oj.Label.startswith("way"):
-            highways.addObject(oj)
-            # oj.ViewObject.Visibility = False
-        if oj.Label.startswith("landuse"):
-            landuse.addObject(oj)
-            # oj.ViewObject.Visibility = False
-        if oj.Label.startswith("w_"):
-            pathes.addObject(oj)
-            oj.ViewObject.Visibility = False
+    for obj in doc.Objects:
+        if obj.Label.startswith("building"):
+            buildings.addObject(obj)
+            # obj.ViewObject.Visibility=False
+        if obj.Label.startswith("highway") or obj.Label.startswith("way"):
+            highways.addObject(obj)
+            # obj.ViewObject.Visibility = False
+        if obj.Label.startswith("landuse"):
+            landuse.addObject(obj)
+            # obj.ViewObject.Visibility = False
+        if obj.Label.startswith("w_"):
+            pathes.addObject(obj)
+            obj.ViewObject.Visibility = False
 
 
 # ---------------------
@@ -116,15 +131,15 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     debug = False
 
     if progressbar:
-            progressbar.setValue(0)
+        progressbar.setValue(0)
 
     if status:
         status.setText("get data from openstreetmap.org ...")
         FreeCADGui.updateGui()
-    content = ""
 
+    content = ""
     bk = 0.5 * bk
-    dn = FreeCAD.ConfigGet("UserAppData") + "/geotools3/"
+    dn = os.path.join(FreeCAD.ConfigGet("UserAppData"), "geoimport_data/")
     fn = dn+str(b)+"-"+str(l)+"-"+str(bk)
     if not os.path.isdir(dn):
         os.makedirs(dn)
@@ -136,15 +151,15 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         content = f.read()
     #    say(content)
     #    raise Exception("to debug:force load from internet")
-    except:
+    except Exception:
         sayW("no cache file, so I connect to  openstreetmap.org...")
         lk = bk
         b1 = b - bk / 1113 * 10
         l1 = l - lk / 713 * 10
         b2 = b + bk / 1113 * 10
         l2 = l + lk / 713 * 10
-        base_source = "http://api.openstreetmap.org/api/0.6/map?bbox="
-        source = "{}{},{},{},{}".format(base_source, l1, b1, l2, b2)
+        koord_str = "{},{},{},{}".format(l1, b1, l2, b2)
+        source = "http://api.openstreetmap.org/api/0.6/map?bbox="+koord_str
         say(source)
 
         response = requests.get(source)
@@ -200,7 +215,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
                     status.setText("FILE CLOSED ..." + str(li))
                     FreeCADGui.updateGui()
                 response.close()
-            except:
+            except Exception:
                 sayErr("Fehler beim Lesen")
 
             if status:
@@ -228,8 +243,6 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     say("------------------------------")
     say(fn)
 
-    say(fn)
-
     tree = my_xmlparser.getData(fn)
 
     # say("nodes")
@@ -245,7 +258,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     if 0:
         try:
             sd = my_xmlparser.parse(content)
-        except:
+        except Exception:
             sayexc("Problem parsing data - abort")
             status.setText(
                 "Problem parsing data - aborted, for details see Report view"
@@ -324,7 +337,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         for tk in zz:
             try:
                 res += str(tk)
-            except:
+            except Exception:
 
                 if ord(tk) == 223:
                     res += "ß"
@@ -349,20 +362,20 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     # TODO, if a document exists or was passed use this one
     # it makes sense to use the doc as return value
     doc = App.newDocument("OSM Map")
-    say("Datei erzeugt")
+    say("New FreeCAD document created.")
 
     # base area
     area = doc.addObject("Part::Plane", "area")
-    say("grundflaeche erzeugt")
+    say("Base area created.")
     try:
         viewprovider = area.ViewObject
         root = viewprovider.RootNode
         myLight = coin.SoDirectionalLight()
         myLight.color.setValue(coin.SbColor(0, 1, 0))
         root.insertChild(myLight, 0)
-        say("beleuchtung auf grundobjekt eingeschaltet")
-    except:
-        sayexc("Beleuchtung 272")
+        say("Lighting on base area activated.")
+    except Exception:
+        sayexc("Lighting 272")
 
     cam = """#Inventor V2.1 ascii
     OrthographicCamera {
@@ -375,7 +388,6 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     """
     x = 0
     y = 0
-    height = 1000000
     height = 200 * bk * 10000 / 0.6
     cam += "\nposition " + str(x) + " " + str(y) + " 999\n "
     cam += "\nheight " + str(height) + "\n}\n\n"
@@ -390,7 +402,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         FreeCAD.Rotation(0.00, 0.00, 0.00, 1.00)
     )
     area.Placement = placement_for_area
-    say("Area skaliert")
+    say("Base area scaled.")
 
     if elevation:
         # base area surface mesh with heights
@@ -447,6 +459,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     count_ways = len(ways)
     starttime = time.time()
     refresh = 1000
+
     for w in ways:
         wid = w.params["id"]
 
@@ -466,12 +479,13 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         #     break
 
         nowtime = time.time()
-        # if wn != 0 and (nowtime - starttime) / wn > 0.5:
+        # if wn != 0 and (nowtime - starttime) / wn > 0.5:  # had problems
         if wn != 0:
             print(
                 "way ---- # {}/{} time per house: {}"
                 .format(wn, count_ways, round((nowtime-starttime)/wn, 2))
             )
+
         if progressbar:
             progressbar.setValue(int(0 + 100.0 * wn / count_ways))
 
@@ -479,6 +493,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         st2 = ""
         nr = ""
         h = 0
+        # ci is never used
         # ci = ""
 
         for t in w.getiterator("tag"):
@@ -504,11 +519,13 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
 
                 if str(t.params["k"]) == "addr:city":
                     pass
+                    # ci is never used
                     # ci = t.params["v"]
 
                 if str(t.params["k"]) == "name":
                     zz = t.params["v"]
                     nr = beaustring(zz)
+
                 if str(t.params["k"]) == "ref":
                     zz = t.params["v"]
                     nr = beaustring(zz)+" /"
@@ -516,30 +533,32 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
                 if str(t.params["k"]) == "addr:street":
                     zz = t.params["v"]
                     st2 = " "+beaustring(zz)
+
                 if str(t.params["k"]) == "addr:housenumber":
                     nr = str(t.params["v"])
 
                 if str(t.params["k"]) == "building:levels":
                     if h == 0:
                         h = int(str(t.params["v"]))*1000*3
+
                 if str(t.params["k"]) == "building:height":
                     h = int(str(t.params["v"]))*1000
-            except:
+
+            except Exception:
                 sayErr("unexpected error {}".format(50*"#"))
 
-        name = str(st) + " " + str(nr)
         name = str(st) + st2 + " " + str(nr)
         if name == " ":
             name = "landuse xyz"
         if debug:
             say(("name ", name))
-        # say(name,zz,nr,ci)
+        # say(name, zz, nr, ci)
 
         # generate pointlist for polygon of the way
         polygon_points = []
         height = None
         llpoints = []
-        # say("get nodes",w)
+        # say("get nodes", w)
         for n in w.getiterator("nd"):
             # say(n.params)
             m = nodesbyid[n.params["ref"]]
@@ -643,13 +662,13 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
             g = doc.addObject("Part::Extrusion", name)
             g.Base = pp_obj
             if nr == "residential":
-                g.ViewObject.ShapeColor = (1.00, .60, .60)
+                g.ViewObject.ShapeColor = (1.00, 0.60, 0.60)
             elif nr == "meadow":
                 g.ViewObject.ShapeColor = (0.00, 1.00, 0.00)
             elif nr == "farmland":
-                g.ViewObject.ShapeColor = (.80, .80, .00)
+                g.ViewObject.ShapeColor = (0.80, 0.80, 0.00)
             elif nr == "forest":
-                g.ViewObject.ShapeColor = (1.0, .40, .40)
+                g.ViewObject.ShapeColor = (1.0, 0.40, 0.40)
             g.Dir = (0, 0, 0.1)
             g.Label = name
             g.Solid = True
@@ -657,13 +676,13 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         if highway:
             g = doc.addObject("Part::Extrusion", "highway")
             g.Base = pp_obj
-            g.ViewObject.LineColor = (0.00, .00, 1.00)
+            g.ViewObject.LineColor = (0.00, 0.00, 1.00)
             g.ViewObject.LineWidth = 10
             g.Dir = (0, 0, 0.2)
             g.Label = name
         refresh += 1
-        if os.path.exists("/tmp/stop"):
 
+        if os.path.exists("/tmp/stop"):
             sayErr("notbremse gezogen")
             FreeCAD.w = w
             raise Exception("Notbremse Manager main loop")
@@ -680,11 +699,12 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     if status:
         status.setText("import finished.")
     if progressbar:
-            progressbar.setValue(100)
+        progressbar.setValue(100)
 
     organize_doc(doc)
 
     endtime = time.time()
     say(("running time ", int(endtime-starttime),  " count ways ", count_ways))
     doc.recompute()
+
     return True
