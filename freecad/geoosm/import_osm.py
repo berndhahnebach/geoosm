@@ -41,6 +41,7 @@ from freecad.trails.geoimport import inventortools
 from freecad.trails.geoimport import my_xmlparser
 from freecad.trails.geoimport import transversmercator
 
+from freecad.trails.geoimport.import_osm import map_data
 from freecad.trails.geoimport.import_osm import organize_doc
 
 from freecad.trails.geoimport.say import say
@@ -227,56 +228,8 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     ways = tree.getiterator("way")
     bounds = tree.getiterator("bounds")[0]
 
-    # center of the scene
-    minlat = float(bounds.params["minlat"])
-    minlon = float(bounds.params["minlon"])
-    maxlat = float(bounds.params["maxlat"])
-    maxlon = float(bounds.params["maxlon"])
-    # print(minlat)
-    # print(minlon)
-    # print(maxlat)
-    # print(maxlon)
-
-    tm = transversmercator.TransverseMercator()
-    # print("Center vorh: {}".format(tm.fromGeographic(b,l)))
-    tm.lat = 0.5 * (minlat + maxlat)
-    tm.lon = 0.5 * (minlon + maxlon)
-    # setting values changes the result, see transversmerctor module
-    # print("Center nach: {}".format(center))
-
-    center = tm.fromGeographic(tm.lat, tm.lon)
-    corner_min = tm.fromGeographic(minlat, minlon)
-    corner_max = tm.fromGeographic(maxlat, maxlon)
-    # print("Corner lu: {}".format(corner_min))
-    # print("Corner ro: {}".format(corner_max))
-    vec_corner_min = FreeCAD.Vector(
-        corner_min[0],
-        corner_min[1],
-        0
-    )
-    vec_corner_max = FreeCAD.Vector(
-        corner_max[0],
-        corner_max[1],
-        0
-    )
-    print("Corner lu: {}".format(vec_corner_min))
-    print("Corner ro: {}".format(vec_corner_max))
-    size = [center[0] - corner_min[0], center[1] - corner_min[1]]
-
-    # map all points to xy-plane
-    points = {}
-    nodesbyid = {}
-    for n in nodes:
-        nodesbyid[n.params["id"]] = n
-        ll = tm.fromGeographic(
-            float(n.params["lat"]),
-            float(n.params["lon"])
-        )
-        points[str(n.params["id"])] = FreeCAD.Vector(
-            ll[0] - center[0],
-            ll[1] - center[1],
-            0.0
-        )
+    # get base area size and map nodes data to the area on coordinate origin
+    size, points, nodesbyid = map_data(nodes, bounds)
 
     if status:
         status.setText("create visualizations  ...")
@@ -653,4 +606,3 @@ def beaustring(string):
                 sayErr(["error sign", tk, ord(tk), string])
                 res += "#"
     return res
-
