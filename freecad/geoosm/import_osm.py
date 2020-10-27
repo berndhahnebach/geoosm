@@ -38,7 +38,6 @@ from pivy import coin
 
 import FreeCAD
 import FreeCADGui
-import FreeCAD as App
 # import Mesh
 import MeshPart
 import Part
@@ -361,7 +360,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     # new document
     # TODO, if a document exists or was passed use this one
     # it makes sense to use the doc as return value
-    doc = App.newDocument("OSM Map")
+    doc = FreeCAD.newDocument("OSM Map")
     say("New FreeCAD document created.")
 
     # base area
@@ -393,7 +392,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     cam += "\nheight " + str(height) + "\n}\n\n"
     FreeCADGui.activeDocument().activeView().setCamera(cam)
     FreeCADGui.activeDocument().activeView().viewAxonometric()
-    say("Kamera gesetzt")
+    say("Camera was set.")
 
     area.Length = size[0] * 2
     area.Width = size[1] * 2
@@ -654,9 +653,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
             g.Dir = (0, 0, h)
             g.Solid = True
             g.Label = name
-
-            obj = doc.ActiveObject
-            inventortools.setcolors2(obj)
+            inventortools.setcolors2(g)
 
         if landuse:
             g = doc.addObject("Part::Extrusion", name)
