@@ -24,10 +24,6 @@
 Import data from OpenStreetMap
 """
 
-# http://api.openstreetmap.org/api/0.6/map?bbox=11.74182,50.16413,11.74586,50.16561
-# http://api.openstreetmap.org/api/0.6/way/384013089
-# http://api.openstreetmap.org/api/0.6/node/3873106739
-
 import json
 import os
 import requests
@@ -38,7 +34,6 @@ from pivy import coin
 
 import FreeCAD
 import FreeCADGui
-# import Mesh
 import MeshPart
 import Part
 
@@ -56,68 +51,25 @@ from freecad.trails.geoimport.say import sayexc
 from freecad.trails.geoimport.say import sayW
 
 
-# TODO all module, make run in on non gui too
-
-
-def organize_doc(doc):
-    """
-    Create groups for the different object types
-    GRP_highways, GRP_building, GRP_landuse
-    """
-    highways = doc.addObject(
-        "App::DocumentObjectGroup",
-        "GRP_highways"
-    )
-    landuse = doc.addObject(
-        "App::DocumentObjectGroup",
-        "GRP_landuse"
-    )
-    buildings = doc.addObject(
-        "App::DocumentObjectGroup",
-        "GRP_building"
-    )
-    pathes = doc.addObject(
-        "App::DocumentObjectGroup",
-        "GRP_pathes"
-    )
-
-    for obj in doc.Objects:
-        if obj.Label.startswith("building"):
-            buildings.addObject(obj)
-            # obj.ViewObject.Visibility=False
-        if obj.Label.startswith("highway") or obj.Label.startswith("way"):
-            highways.addObject(obj)
-            # obj.ViewObject.Visibility = False
-        if obj.Label.startswith("landuse"):
-            landuse.addObject(obj)
-            # obj.ViewObject.Visibility = False
-        if obj.Label.startswith("w_"):
-            pathes.addObject(obj)
-            obj.ViewObject.Visibility = False
-
-
-# ---------------------
-# fn="/home/thomas/.FreeCAD//geotools3/50.340722-11.232647-0.015"
-# fn="/home/thomas/.FreeCAD/system.cfg"
-debug = False
-# --------------------
-# core method to download and import the data
-#
-# def import_osm(b,l,bk,progressbar,status):
-#    import_osm2(b,l,bk,progressbar,status,False)
-
-
 """
-from geoosm.import_osm import import_osm2
+# http://api.openstreetmap.org/api/0.6/map?bbox=11.74182,50.16413,11.74586,50.16561
+# http://api.openstreetmap.org/api/0.6/way/384013089
+# http://api.openstreetmap.org/api/0.6/node/3873106739
+
+from freecad.geoosm.import_osm import import_osm2
 rc = import_osm2(50.340722, 11.232647, 0.03, False, False, False)
 
 # with elevations
 import geoosm.import_osm
 import importlib
-importlib.reload(geoosm.import_osm)
-rc = geoosm.import_osm.import_osm2(50.340722, 11.232647, 0.03, False, False, True)
+importlib.reload(freecad.geoosm.import_osm)
+rc = freecad.geoosm.import_osm.import_osm2(50.340722, 11.232647, 0.03, False, False, True)
 
 """
+
+
+# TODO: make run osm import method in on non gui too
+debug = False
 
 
 def import_osm2(b, l, bk, progressbar, status, elevation):
@@ -125,9 +77,6 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     print("The importer of geoosm is used to import osm data. ")
     print("This one does support elevations.")
     print(b, l, bk, progressbar, status, elevation)
-
-    # dialog = False
-    debug = False
 
     if progressbar:
         progressbar.setValue(0)
@@ -173,9 +122,9 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
                 for chunk in response.iter_content(1024):
                     f.write(chunk)
         f.close()
-        # print("huhu");return
+        # print("The dev would like to break");return
 
-        if 0:
+        if False:
             try:
                 say("read--")
                 response = request.urlopen(source)
@@ -227,7 +176,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     if elevation:
         say("get height for {}, {}".format(b, l))
         baseheight = get_height_single(b, l)
-        print("baseheight = {} mm".format(baseheight))
+        say("baseheight = {} mm".format(baseheight))
     else:
         baseheight = 0
 
@@ -254,7 +203,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     # for element in tree.getiterator("relation"):
     #     say(element.params)
 
-    if 0:
+    if False:
         try:
             sd = my_xmlparser.parse(content)
         except Exception:
@@ -264,8 +213,8 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
             )
             return
 
-    if debug:
-        say(json.dumps(sd, indent=4))
+        if debug:
+            say(json.dumps(sd, indent=4))
 
     if status:
         status.setText("transform data ...")
@@ -326,32 +275,6 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
             ll[1] - center[1],
             0.0
         )
-
-    # say(points)
-    # say("abbruch3 -hier daten uebernehmen !!");return
-
-    # hack to catch deutsche umlaute
-    def beaustring(string):
-        res = ""
-        for tk in zz:
-            try:
-                res += str(tk)
-            except Exception:
-
-                if ord(tk) == 223:
-                    res += "ß"
-                elif ord(tk) == 246:
-                    res += "ö"
-                elif ord(tk) == 196:
-                    res += "Ä"
-                elif ord(tk) == 228:
-                    res += "ä"
-                elif ord(tk) == 242:
-                    res += "ü"
-                else:
-                    sayErr(["error sign", tk, ord(tk), string])
-                    res += "#"
-        return res
 
     if status:
         status.setText("create visualizations  ...")
@@ -471,8 +394,8 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         landuse = False
         highway = False
         wn += 1
-
-        # only use some of the ways
+        
+        # for debugging, break after some of the ways have been processed
         # if wn == 6:
         #     print("Waycount restricted to {} by dev".format(wn - 1))
         #     break
@@ -705,3 +628,64 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     doc.recompute()
 
     return True
+
+
+def organize_doc(doc):
+    """
+    Create groups for the different object types
+    GRP_highways, GRP_building, GRP_landuse
+    """
+    highways = doc.addObject(
+        "App::DocumentObjectGroup",
+        "GRP_highways"
+    )
+    landuse = doc.addObject(
+        "App::DocumentObjectGroup",
+        "GRP_landuse"
+    )
+    buildings = doc.addObject(
+        "App::DocumentObjectGroup",
+        "GRP_building"
+    )
+    pathes = doc.addObject(
+        "App::DocumentObjectGroup",
+        "GRP_pathes"
+    )
+
+    for obj in doc.Objects:
+        if obj.Label.startswith("building"):
+            buildings.addObject(obj)
+            # obj.ViewObject.Visibility=False
+        if obj.Label.startswith("highway") or obj.Label.startswith("way"):
+            highways.addObject(obj)
+            # obj.ViewObject.Visibility = False
+        if obj.Label.startswith("landuse"):
+            landuse.addObject(obj)
+            # obj.ViewObject.Visibility = False
+        if obj.Label.startswith("w_"):
+            pathes.addObject(obj)
+            obj.ViewObject.Visibility = False
+
+
+# hack to catch German special character (Umlaute)
+def beaustring(string):
+    res = ""
+    for tk in zz:
+        try:
+            res += str(tk)
+        except Exception:
+            if ord(tk) == 223:
+                res += "ß"
+            elif ord(tk) == 246:
+                res += "ö"
+            elif ord(tk) == 196:
+                res += "Ä"
+            elif ord(tk) == 228:
+                res += "ä"
+            elif ord(tk) == 242:
+                res += "ü"
+            else:
+                sayErr(["error sign", tk, ord(tk), string])
+                res += "#"
+    return res
+
