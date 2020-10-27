@@ -41,15 +41,17 @@ from freecad.trails.geoimport import inventortools
 from freecad.trails.geoimport import my_xmlparser
 from freecad.trails.geoimport import transversmercator
 
-# from .get_elevation import get_height_srtm_tkrajina as get_height_single
-# from .get_elevation import get_heights_srtm_tkrajina as get_height_list
-from .get_elevation import get_height_srtm4 as get_height_single
-from .get_elevation import get_heights_srtm4 as get_height_list
+from freecad.trails.geoimport.import_osm import organize_doc
+
 from freecad.trails.geoimport.say import say
 from freecad.trails.geoimport.say import sayErr
 from freecad.trails.geoimport.say import sayexc
 from freecad.trails.geoimport.say import sayW
 
+# from .get_elevation import get_height_srtm_tkrajina as get_height_single
+# from .get_elevation import get_heights_srtm_tkrajina as get_height_list
+from .get_elevation import get_height_srtm4 as get_height_single
+from .get_elevation import get_heights_srtm4 as get_height_list
 
 """
 # http://api.openstreetmap.org/api/0.6/map?bbox=11.74182,50.16413,11.74586,50.16561
@@ -628,43 +630,6 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     doc.recompute()
 
     return True
-
-
-def organize_doc(doc):
-    """
-    Create groups for the different object types
-    GRP_highways, GRP_building, GRP_landuse
-    """
-    highways = doc.addObject(
-        "App::DocumentObjectGroup",
-        "GRP_highways"
-    )
-    landuse = doc.addObject(
-        "App::DocumentObjectGroup",
-        "GRP_landuse"
-    )
-    buildings = doc.addObject(
-        "App::DocumentObjectGroup",
-        "GRP_building"
-    )
-    pathes = doc.addObject(
-        "App::DocumentObjectGroup",
-        "GRP_pathes"
-    )
-
-    for obj in doc.Objects:
-        if obj.Label.startswith("building"):
-            buildings.addObject(obj)
-            # obj.ViewObject.Visibility=False
-        if obj.Label.startswith("highway") or obj.Label.startswith("way"):
-            highways.addObject(obj)
-            # obj.ViewObject.Visibility = False
-        if obj.Label.startswith("landuse"):
-            landuse.addObject(obj)
-            # obj.ViewObject.Visibility = False
-        if obj.Label.startswith("w_"):
-            pathes.addObject(obj)
-            obj.ViewObject.Visibility = False
 
 
 # hack to catch German special character (Umlaute)
