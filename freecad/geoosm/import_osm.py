@@ -24,12 +24,9 @@
 Import data from OpenStreetMap
 """
 
-import json
 import os
-import requests
 import time
-from urllib import request
-
+import urllib.request
 from pivy import coin
 
 import FreeCAD
@@ -113,68 +110,13 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         source = "http://api.openstreetmap.org/api/0.6/map?bbox="+koord_str
         say(source)
 
-        response = requests.get(source)
-        # data = response.text
-        # lines = response.text.split("\n")
+        response = urllib.request.urlopen(source)
         FreeCAD.t = response
 
         f = open(fn, "w")
-        # f.write(response.text)
-        if response.status_code == 200:
-            with open(fn, "wb") as f:
-                for chunk in response.iter_content(1024):
-                    f.write(chunk)
+        f.write(response.read().decode("utf8"))
         f.close()
         # print("The dev would like to break");return
-
-        if False:
-            try:
-                say("read--")
-                response = request.urlopen(source)
-
-                say(response)
-                say("2huu")
-                first = True
-                content = ""
-                f = open(fn, "w")
-                li = 0
-                z = 0
-                # ct = 0
-
-                say("2wkkw")
-                # say(response.text)
-                # lines=response.text.split("\n")
-                #  say(len(lines))
-                say("ll")
-                # for line in lines:
-                for line in response:
-                    print("Y", line)
-                    if status:
-                        if z > 5000:
-                            status.setText("read data ..." + str(li))
-                            z = 0
-                        FreeCADGui.updateGui()
-                        li += 1
-                        z += 1
-                    if first:
-                        first = False
-                    else:
-                        content += line
-                        f.write(line)
-                f.close()
-                if status:
-                    status.setText("FILE CLOSED ..." + str(li))
-                    FreeCADGui.updateGui()
-                response.close()
-            except Exception:
-                sayErr("Fehler beim Lesen")
-
-            if status:
-                status.setText("got data from openstreetmap.org ...")
-                FreeCADGui.updateGui()
-            sayW("Beeenden - im zweiten versuch daten auswerten")
-
-            return False
 
     if elevation:
         say("get height for {}, {}".format(b, l))
@@ -205,19 +147,6 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     # say("relations")
     # for element in tree.getiterator("relation"):
     #     say(element.params)
-
-    if False:
-        try:
-            sd = my_xmlparser.parse(content)
-        except Exception:
-            sayexc("Problem parsing data - abort")
-            status.setText(
-                "Problem parsing data - aborted, for details see Report view"
-            )
-            return
-
-        if debug:
-            say(json.dumps(sd, indent=4))
 
     if status:
         status.setText("transform data ...")
@@ -349,7 +278,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         landuse = False
         highway = False
         wn += 1
-        
+
         # for debugging, break after some of the ways have been processed
         # if wn == 6:
         #     print("Waycount restricted to {} by dev".format(wn - 1))
@@ -400,16 +329,13 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
                     # ci = t.params["v"]
 
                 if str(t.params["k"]) == "name":
-                    zz = t.params["v"]
-                    nr = beaustring(zz)
+                    nr = t.params["v"]
 
                 if str(t.params["k"]) == "ref":
-                    zz = t.params["v"]
-                    nr = beaustring(zz)+" /"
+                    nr = t.params["v"]+" /"
 
                 if str(t.params["k"]) == "addr:street":
-                    zz = t.params["v"]
-                    st2 = " "+beaustring(zz)
+                    st2 = " "+t.params["v"]
 
                 if str(t.params["k"]) == "addr:housenumber":
                     nr = str(t.params["v"])
@@ -429,7 +355,6 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
             name = "landuse xyz"
         if debug:
             say(("name ", name))
-        # say(name, zz, nr, ci)
 
         # generate pointlist for polygon of the way
         polygon_points = []
@@ -584,25 +509,3 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
 
     return True
 
-
-# hack to catch German special character (Umlaute)
-def beaustring(string):
-    res = ""
-    for tk in zz:
-        try:
-            res += str(tk)
-        except Exception:
-            if ord(tk) == 223:
-                res += "ß"
-            elif ord(tk) == 246:
-                res += "ö"
-            elif ord(tk) == 196:
-                res += "Ä"
-            elif ord(tk) == 228:
-                res += "ä"
-            elif ord(tk) == 242:
-                res += "ü"
-            else:
-                sayErr(["error sign", tk, ord(tk), string])
-                res += "#"
-    return res
