@@ -26,7 +26,6 @@ Import data from OpenStreetMap
 
 import os
 import time
-import urllib.request
 from pivy import coin
 
 import FreeCAD
@@ -35,16 +34,16 @@ import MeshPart
 import Part
 
 from freecad.trails.geomatics.geoimport import inventortools
-from freecad.trails.geomatics.geoimport import my_xmlparser
 from freecad.trails.geomatics.geoimport import transversmercator
 
+from freecad.trails.geomatics.geoimport.import_osm import get_osmdata
 # from freecad.trails.geomatics.geoimport.import_osm import map_data
 from freecad.trails.geomatics.geoimport.import_osm import organize_doc
 
 from freecad.trails.geomatics.geoimport.say import say
 from freecad.trails.geomatics.geoimport.say import sayErr
 from freecad.trails.geomatics.geoimport.say import sayexc
-from freecad.trails.geomatics.geoimport.say import sayW
+# from freecad.trails.geomatics.geoimport.say import sayW
 
 # from .get_elevation import get_height_srtm_tkrajina as get_height_single
 # from .get_elevation import get_heights_srtm_tkrajina as get_height_list
@@ -60,10 +59,10 @@ from freecad.geoosm.import_osm import import_osm2
 rc = import_osm2(50.340722, 11.232647, 0.03, False, False, False)
 
 # with elevations
-import geoosm.import_osm
+from freecad.geoosm import import_osm
 import importlib
-importlib.reload(freecad.geoosm.import_osm)
-rc = freecad.geoosm.import_osm.import_osm2(50.340722, 11.232647, 0.03, False, False, True)
+importlib.reload(import_osm)
+rc = import_osm.import_osm2(50.340722, 11.232647, 0.03, False, False, True)
 
 """
 
@@ -72,71 +71,28 @@ rc = freecad.geoosm.import_osm.import_osm2(50.340722, 11.232647, 0.03, False, Fa
 debug = False
 
 
-def import_osm2(b, l, bk, progressbar, status, elevation):
+def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
 
-    print("The importer of geoosm is used to import osm data. ")
+    bk = 0.5 * bk
+    baseheight = 0.0
+
+    print("The importer of geoosm is used to import osm data.")
     print("This one does support elevations.")
     print(b, l, bk, progressbar, status, elevation)
 
+    # *************************************************************************
+    # get and parse osm data
     if progressbar:
         progressbar.setValue(0)
-
     if status:
-        status.setText("get data from openstreetmap.org ...")
+        status.setText(
+            "get data from openstreetmap.org and parse it for later usage ..."
+        )
         FreeCADGui.updateGui()
-
-    content = ""
-    bk = 0.5 * bk
-    dn = os.path.join(FreeCAD.ConfigGet("UserAppData"), "geoimport_data/")
-    fn = dn+str(b)+"-"+str(l)+"-"+str(bk)
-    if not os.path.isdir(dn):
-        os.makedirs(dn)
-
-    try:
-        say("I try to read data from cache file ... ")
-        say(fn)
-        f = open(fn, "r")
-        content = f.read()
-    #    say(content)
-    #    raise Exception("to debug:force load from internet")
-    except Exception:
-        sayW("no cache file, so I connect to  openstreetmap.org...")
-        lk = bk
-        b1 = b - bk / 1113 * 10
-        l1 = l - lk / 713 * 10
-        b2 = b + bk / 1113 * 10
-        l2 = l + lk / 713 * 10
-        koord_str = "{},{},{},{}".format(l1, b1, l2, b2)
-        source = "http://api.openstreetmap.org/api/0.6/map?bbox="+koord_str
-        say(source)
-
-        response = urllib.request.urlopen(source)
-        FreeCAD.t = response
-
-        f = open(fn, "w")
-        f.write(response.read().decode("utf8"))
-        f.close()
-        # print("The dev would like to break");return
-
-    if elevation:
-        say("get height for {}, {}".format(b, l))
-        baseheight = get_height_single(b, l)
-        say("baseheight = {} mm".format(baseheight))
-    else:
-        baseheight = 0
-
-    if debug:
-        say("-------Data---------")
-        say(content)
-
-    if status:
-        status.setText("parse data ...")
-        FreeCADGui.updateGui()
-
-    say("------------------------------")
-    say(fn)
-
-    tree = my_xmlparser.getData(fn)
+    tree = get_osmdata(b, l, bk)
+    if tree is None:
+        sayErr("Something went wrong on retrieving OSM data.")
+        return False
 
     # say("nodes")
     # for element in tree.getiterator("node"):
@@ -148,6 +104,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     # for element in tree.getiterator("relation"):
     #     say(element.params)
 
+    # *************************************************************************
     if status:
         status.setText("transform data ...")
         FreeCADGui.updateGui()
@@ -210,6 +167,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         )
         # size, points, nodesbyid = map_data(nodes, bounds)
 
+    # *************************************************************************
     if status:
         status.setText("create visualizations  ...")
         FreeCADGui.updateGui()
@@ -260,12 +218,17 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     area.Placement = placement_for_area
     say("Base area scaled.")
 
+    # *************************************************************************
     if elevation:
         # idea
         # do not add a doc obj
         # just create a shape and a mesh
         # move mesh points
         # mhh the tm is just needed to get the heights
+
+        # base height
+        say("get height for {}, {}".format(b, l))
+        baseheight = get_height_single(b, l)
 
         # base area surface mesh with heights
         tparea_obj = doc.addObject("Part::Plane", "tmp_area")
@@ -315,6 +278,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
         say("Area with Hights")
         FreeCADGui.updateGui()
 
+    # *************************************************************************
     # ways
     say("Ways")
     wn = -1
@@ -548,6 +512,7 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
             # FreeCADGui.SendMsgToActiveView("ViewFit")
             refresh = 0
 
+    # *************************************************************************
     doc.recompute()
     FreeCADGui.updateGui()
     doc.recompute()
@@ -564,4 +529,3 @@ def import_osm2(b, l, bk, progressbar, status, elevation):
     doc.recompute()
 
     return True
-
