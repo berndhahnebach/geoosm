@@ -34,17 +34,17 @@ import FreeCADGui
 import MeshPart
 import Part
 
-from freecad.trails.geoimport import inventortools
-from freecad.trails.geoimport import my_xmlparser
-from freecad.trails.geoimport import transversmercator
+from freecad.trails.geomatics.geoimport import inventortools
+from freecad.trails.geomatics.geoimport import my_xmlparser
+from freecad.trails.geomatics.geoimport import transversmercator
 
-# from freecad.trails.geoimport.import_osm import map_data
-from freecad.trails.geoimport.import_osm import organize_doc
+# from freecad.trails.geomatics.geoimport.import_osm import map_data
+from freecad.trails.geomatics.geoimport.import_osm import organize_doc
 
-from freecad.trails.geoimport.say import say
-from freecad.trails.geoimport.say import sayErr
-from freecad.trails.geoimport.say import sayexc
-from freecad.trails.geoimport.say import sayW
+from freecad.trails.geomatics.geoimport.say import say
+from freecad.trails.geomatics.geoimport.say import sayErr
+from freecad.trails.geomatics.geoimport.say import sayexc
+from freecad.trails.geomatics.geoimport.say import sayW
 
 # from .get_elevation import get_height_srtm_tkrajina as get_height_single
 # from .get_elevation import get_heights_srtm_tkrajina as get_height_list

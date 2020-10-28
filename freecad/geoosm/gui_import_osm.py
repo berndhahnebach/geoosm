@@ -21,7 +21,7 @@
 """gui for import data from openstreetmap"""
 
 
-from freecad.trails.guigeoimport.gui_import_osm import MyApp
+from freecad.trails.geomatics.guigeoimport.gui_import_osm import MyApp
 
 
 # the gui backend child
@@ -38,7 +38,7 @@ class MyOSMImportApp(MyApp):
         """
 
         print("import_osm from geoosm")
-        from freecad.geoosm.import_osm import import_osm2
+        from .import_osm import import_osm2
         has_finished = import_osm2(
             lat,
             lon,
@@ -58,12 +58,12 @@ def mydialog():
 
     app = MyOSMImportApp()
 
-    from freecad.trails.geoimport import miki
+    from freecad.trails.geomatics.geoimport import miki
     my_miki = miki.Miki()
     my_miki.app = app
     app.root = my_miki
 
-    from freecad.trails.guigeoimport.miki_import_osm import s6
+    from freecad.trails.geomatics.guigeoimport.miki_import_osm import s6
     my_miki.parse2(s6)
     my_miki.run(s6)
 
