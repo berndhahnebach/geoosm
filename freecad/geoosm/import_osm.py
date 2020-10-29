@@ -26,19 +26,18 @@ Import data from OpenStreetMap
 
 import os
 import time
-from pivy import coin
 
 import FreeCAD
 import FreeCADGui
-import MeshPart
 import Part
 
 from freecad.trails.geomatics.geoimport import inventortools
 from freecad.trails.geomatics.geoimport import transversmercator
 
 from freecad.trails.geomatics.geoimport.import_osm import get_osmdata
-# from freecad.trails.geomatics.geoimport.import_osm import map_data
+from freecad.trails.geomatics.geoimport.import_osm import map_data
 from freecad.trails.geomatics.geoimport.import_osm import organize_doc
+from freecad.trails.geomatics.geoimport.import_osm import set_cam
 
 from freecad.trails.geomatics.geoimport.say import say
 from freecad.trails.geomatics.geoimport.say import sayErr
@@ -74,7 +73,12 @@ debug = False
 def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
 
     bk = 0.5 * bk
-    baseheight = 0.0
+    if elevation:
+        say("get height for {}, {}".format(b, l))
+        baseheight = get_height_single(b, l)
+        say("baseheight: {}".format(baseheight))
+    else:
+        baseheight = 0.0
 
     print("The importer of geoosm is used to import osm data.")
     print("This one does support elevations.")
@@ -115,57 +119,12 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
     bounds = tree.getiterator("bounds")[0]
 
     # get base area size and map nodes data to the area on coordinate origin
-    # center of the scene
-    minlat = float(bounds.params["minlat"])
-    minlon = float(bounds.params["minlon"])
-    maxlat = float(bounds.params["maxlat"])
-    maxlon = float(bounds.params["maxlon"])
-    # print(minlat)
-    # print(minlon)
-    # print(maxlat)
-    # print(maxlon)
-
-    tm = transversmercator.TransverseMercator()
-    # print("Center vorh: {}".format(tm.fromGeographic(b,l)))
-    tm.lat = 0.5 * (minlat + maxlat)
-    tm.lon = 0.5 * (minlon + maxlon)
-    # setting values changes the result, see transversmerctor module
-    # print("Center nach: {}".format(center))
-
-    center = tm.fromGeographic(tm.lat, tm.lon)
-    corner_min = tm.fromGeographic(minlat, minlon)
-    corner_max = tm.fromGeographic(maxlat, maxlon)
-    # print("Corner lu: {}".format(corner_min))
-    # print("Corner ro: {}".format(corner_max))
-    vec_corner_min = FreeCAD.Vector(
-        corner_min[0],
-        corner_min[1],
-        0
-    )
-    vec_corner_max = FreeCAD.Vector(
-        corner_max[0],
-        corner_max[1],
-        0
-    )
-    print("Corner lu: {}".format(vec_corner_min))
-    print("Corner ro: {}".format(vec_corner_max))
-    size = [center[0] - corner_min[0], center[1] - corner_min[1]]
-
-    # map all points to xy-plane
-    points = {}
-    nodesbyid = {}
-    for n in nodes:
-        nodesbyid[n.params["id"]] = n
-        ll = tm.fromGeographic(
-            float(n.params["lat"]),
-            float(n.params["lon"])
-        )
-        points[str(n.params["id"])] = FreeCAD.Vector(
-            ll[0] - center[0],
-            ll[1] - center[1],
-            0.0
-        )
-        # size, points, nodesbyid = map_data(nodes, bounds)
+    tm, size, corner_min, points, nodesbyid = map_data(nodes, bounds)
+    # print(tm)
+    # print(size)
+    # print(corner_min)
+    # print(len(points))
+    # print(len(nodesbyid))
 
     # *************************************************************************
     if status:
@@ -180,35 +139,6 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
 
     # base area
     area = doc.addObject("Part::Plane", "area")
-    say("Base area created.")
-    try:
-        viewprovider = area.ViewObject
-        root = viewprovider.RootNode
-        myLight = coin.SoDirectionalLight()
-        myLight.color.setValue(coin.SbColor(0, 1, 0))
-        root.insertChild(myLight, 0)
-        say("Lighting on base area activated.")
-    except Exception:
-        sayexc("Lighting 272")
-
-    cam = """#Inventor V2.1 ascii
-    OrthographicCamera {
-      viewportMapping ADJUST_CAMERA
-      orientation 0 0 -1.0001  0.001
-      nearDistance 0
-      farDistance 10000000000
-      aspectRatio 100
-      focalDistance 1
-    """
-    x = 0
-    y = 0
-    height = 200 * bk * 10000 / 0.6
-    cam += "\nposition " + str(x) + " " + str(y) + " 999\n "
-    cam += "\nheight " + str(height) + "\n}\n\n"
-    FreeCADGui.activeDocument().activeView().setCamera(cam)
-    FreeCADGui.activeDocument().activeView().viewAxonometric()
-    say("Camera was set.")
-
     area.Length = size[0] * 2
     area.Width = size[1] * 2
     placement_for_area = FreeCAD.Placement(
@@ -216,67 +146,24 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
         FreeCAD.Rotation(0.00, 0.00, 0.00, 1.00)
     )
     area.Placement = placement_for_area
-    say("Base area scaled.")
+    if FreeCAD.GuiUp:
+        # set camera
+        set_cam(area, bk)
+        area.ViewObject.Document.activeView().viewAxonometric()
+        FreeCADGui.updateGui()
+    say("Base area created.")
 
-    # *************************************************************************
     if elevation:
-        # idea
-        # do not add a doc obj
-        # just create a shape and a mesh
-        # move mesh points
-        # mhh the tm is just needed to get the heights
-
-        # base height
-        say("get height for {}, {}".format(b, l))
-        baseheight = get_height_single(b, l)
-
-        # base area surface mesh with heights
-        tparea_obj = doc.addObject("Part::Plane", "tmp_area")
-        tparea_obj.Length = size[0] * 2
-        tparea_obj.Width = size[1] * 2
-        tparea_obj.Placement = FreeCAD.Placement(
-            vec_corner_min,
-            FreeCAD.Rotation(0.00, 0.00, 0.00, 1.00)
-        )
+        elearea = doc.addObject("Part::Feature","Elevation_Area")
+        elearea.Shape = get_elebase_sh(corner_min, size, baseheight, tm)
         doc.recompute()
-        # data resolution is 30 m = 30'000 mm in the usa
-        # rest of the world is 90 m = 90'000 mm
-        # it makes no sense to use values smaller than 90'000 mm
-        pt_distance = 100000
-        tmarea_msh = MeshPart.meshFromShape(
-            tparea_obj.Shape,
-            LocalLength=pt_distance
-        )
-        print("area mesh points: {}".format(tmarea_msh.CountPoints))
-        FreeCADGui.updateGui()
-
-        # move mesh points
-        for pt_msh in tmarea_msh.Points:
-            # print(pt_msh.Index)
-            # print(pt_msh.Vector)
-            pt_tm = tm.toGeographic(pt_msh.Vector.x, pt_msh.Vector.y)
-            height = get_height_single(pt_tm[0], pt_tm[1])  # mm
-            pt_msh.move(FreeCAD.Vector(0, 0, height - baseheight))
-
-        tmarea_obj = doc.addObject("Mesh::Feature", "TAreaMesh")
-        tmarea_obj.Mesh = tmarea_msh
-        place_for_mesh = FreeCAD.Vector(
-            -vec_corner_min.x - size[0],
-            -vec_corner_min.y - size[1],
-            0.00)
-        tmarea_obj.Placement = FreeCAD.Placement(
-            place_for_mesh,
-            FreeCAD.Rotation(0.00, 0.00, 0.00, 1.00)
-        )
-        tmarea_obj.ViewObject.Transparency = 50
-
-        tparea_obj.Placement = placement_for_area
-        tparea_obj.ViewObject.hide()
-
-        area.ViewObject.hide()
-        doc.recompute()
-        say("Area with Hights")
-        FreeCADGui.updateGui()
+        if FreeCAD.GuiUp:
+            area.ViewObject.hide()
+            elearea.ViewObject.Transparency = 75       
+            elearea.ViewObject.Document.activeView().viewAxonometric()
+            # elearea.ViewObject.Document.activeView().fitAll()  # the cam was set
+            FreeCADGui.updateGui()
+        say("Area with Hights done")
 
     # *************************************************************************
     # ways
@@ -378,7 +265,6 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
 
         # generate pointlist for polygon of the way
         polygon_points = []
-        height = None
         llpoints = []
         # say("get nodes", w)
         for n in w.getiterator("nd"):
@@ -391,7 +277,6 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
             ])
 
         # elevations
-        height = None
         # if I use srtm it does not matter for speed if
         # one point or list, since the list does call the
         # one point method for all points anyway
@@ -400,6 +285,7 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
             print("    get heights for " + str(len(llpoints)))
             heights = get_height_list(llpoints)
             # print(heights)
+        height = None
         for n in w.getiterator("nd"):
             p = points[str(n.params["ref"])]
             # print(p)
@@ -529,3 +415,81 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
     doc.recompute()
 
     return True
+
+
+def get_elebase_sh(corner_min, size, baseheight, tm):
+
+    from FreeCAD import Vector as vec
+    from MeshPart import meshFromShape
+    from Part import makeLine
+
+    # scaled place on orgin
+    place_for_mesh = FreeCAD.Vector(
+        -corner_min.x - size[0],
+        -corner_min.y - size[1],
+        0.00)
+    
+    # SRTM data resolution is 30 m = 30'000 mm in the usa
+    # rest of the world is 90 m = 90'000 mm
+    # it makes no sense to use values smaller than 90'000 mm
+    pt_distance = 100000
+    
+    print(corner_min)
+    # y is huge!, but this is ok!
+    print(size)
+    
+    # base area surface mesh with heights
+    # Version new
+    pn1 = vec(
+        0,
+        0,
+        0
+    )
+    pn2 = vec(
+        pn1.x + size[0] * 2,
+        pn1.y,
+        0
+    )
+    pn3 = vec(
+        pn1.x + size[0] * 2,
+        pn1.y + size[1] * 2,
+        0
+    )
+    pn4 = vec(
+        pn1.x,
+        pn1.y + size[1] * 2,
+        0
+    )
+    ln1 = makeLine(pn1, pn2)
+    ln2 = makeLine(pn2, pn3)
+    ln3 = makeLine(pn3, pn4)
+    ln4 = makeLine(pn4, pn1)
+    wi = Part.Wire([ln1, ln2, ln3, ln4])
+    fa = Part.makeFace([wi], "Part::FaceMakerSimple")
+    msh = meshFromShape(fa, LocalLength=pt_distance)
+    # move to corner_min to retrieve the heights
+    msh.translate(
+        corner_min.x,
+        corner_min.y,
+        0,
+    )
+    # move mesh points z-koord
+    for pt_msh in msh.Points:
+        # print(pt_msh.Index)
+        # print(pt_msh.Vector)
+        pt_tm = tm.toGeographic(pt_msh.Vector.x, pt_msh.Vector.y)
+        height = get_height_single(pt_tm[0], pt_tm[1])  # mm
+        # print(height)
+        pt_msh.move(FreeCAD.Vector(0, 0, height))
+    # move mesh back centered on origin
+    msh.translate(
+        -corner_min.x - size[0],
+        -corner_min.y - size[1],
+        -baseheight,
+    )
+
+    # create Shape from Mesh
+    sh = Part.Shape()
+    sh.makeShapeFromMesh(msh.Topology, 0.1)
+
+    return sh
