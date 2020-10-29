@@ -35,6 +35,7 @@ from freecad.trails.geomatics.geoimport import inventortools
 from freecad.trails.geomatics.geoimport import transversmercator
 
 from freecad.trails.geomatics.geoimport.import_osm import get_osmdata
+from freecad.trails.geomatics.geoimport.import_osm import get_way_information
 from freecad.trails.geomatics.geoimport.import_osm import map_data
 from freecad.trails.geomatics.geoimport.import_osm import organize_doc
 from freecad.trails.geomatics.geoimport.import_osm import set_cam
@@ -66,7 +67,7 @@ rc = import_osm.import_osm2(50.340722, 11.232647, 0.03, False, False, True)
 """
 
 
-# TODO: make run osm import method in on non gui too
+# TODO: test run osm import method in on non gui
 debug = False
 
 
@@ -80,15 +81,15 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
     else:
         baseheight = 0.0
 
-    print("The importer of geoosm is used to import osm data.")
-    print("This one does support elevations.")
-    print(b, l, bk, progressbar, status, elevation)
+    say("The importer of geoosm is used to import osm data.")
+    say("This one does support elevations.")
+    say(b, l, bk, progressbar, status, elevation)
 
     # *************************************************************************
     # get and parse osm data
-    if progressbar:
+    if progressbar and FreeCAD.GuiUp:
         progressbar.setValue(0)
-    if status:
+    if status and FreeCAD.GuiUp:
         status.setText(
             "get data from openstreetmap.org and parse it for later usage ..."
         )
@@ -109,7 +110,7 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
     #     say(element.params)
 
     # *************************************************************************
-    if status:
+    if status and FreeCAD.GuiUp:
         status.setText("transform data ...")
         FreeCADGui.updateGui()
 
@@ -120,14 +121,14 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
 
     # get base area size and map nodes data to the area on coordinate origin
     tm, size, corner_min, points, nodesbyid = map_data(nodes, bounds)
-    # print(tm)
-    # print(size)
-    # print(corner_min)
-    # print(len(points))
-    # print(len(nodesbyid))
+    # say(tm)
+    # say(size)
+    # say(corner_min)
+    # say(len(points))
+    # say(len(nodesbyid))
 
     # *************************************************************************
-    if status:
+    if status and FreeCAD.GuiUp:
         status.setText("create visualizations  ...")
         FreeCADGui.updateGui()
 
@@ -173,28 +174,23 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
     starttime = time.time()
     refresh = 1000
 
-    for w in ways:
-        wid = w.params["id"]
-
-        # say(w.params)
-        # say("way content")
-        # for c in w.content:
-        #     say(c)
-
-        building = False
-        landuse = False
-        highway = False
+    for way in ways:
+        wid = way.params["id"]
         wn += 1
 
+        # say(way.params)
+        # say("way content")
+        # for c in way.content:
+        #     say(c)
         # for debugging, break after some of the ways have been processed
         # if wn == 6:
-        #     print("Waycount restricted to {} by dev".format(wn - 1))
+        #     say("Waycount restricted to {} by dev".format(wn - 1))
         #     break
 
         nowtime = time.time()
         # if wn != 0 and (nowtime - starttime) / wn > 0.5:  # had problems
         if wn != 0:
-            print(
+            say(
                 "way ---- # {}/{} time per house: {}"
                 .format(wn, count_ways, round((nowtime-starttime)/wn, 2))
             )
@@ -202,217 +198,163 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
         if progressbar:
             progressbar.setValue(int(0 + 100.0 * wn / count_ways))
 
-        st = ""
-        st2 = ""
-        nr = ""
-        h = 0
-        # ci is never used
-        # ci = ""
+        # get a name for the way
+        name, way_type, nr, building_height = get_way_information(way)
 
-        for t in w.getiterator("tag"):
-            try:
-                if debug:
-                    say(t)
-                    # say(t.params["k"])
-                    # say(t.params["v"])
-
-                if str(t.params["k"]) == "building":
-                    building = True
-                    if st == "":
-                        st = "building"
-
-                if str(t.params["k"]) == "landuse":
-                    landuse = True
-                    st = t.params["k"]
-                    nr = t.params["v"]
-
-                if str(t.params["k"]) == "highway":
-                    highway = True
-                    st = t.params["k"]
-
-                if str(t.params["k"]) == "addr:city":
-                    pass
-                    # ci is never used
-                    # ci = t.params["v"]
-
-                if str(t.params["k"]) == "name":
-                    nr = t.params["v"]
-
-                if str(t.params["k"]) == "ref":
-                    nr = t.params["v"]+" /"
-
-                if str(t.params["k"]) == "addr:street":
-                    st2 = " "+t.params["v"]
-
-                if str(t.params["k"]) == "addr:housenumber":
-                    nr = str(t.params["v"])
-
-                if str(t.params["k"]) == "building:levels":
-                    if h == 0:
-                        h = int(str(t.params["v"]))*1000*3
-
-                if str(t.params["k"]) == "building:height":
-                    h = int(str(t.params["v"]))*1000
-
-            except Exception:
-                sayErr("unexpected error {}".format(50*"#"))
-
-        name = str(st) + st2 + " " + str(nr)
-        if name == " ":
-            name = "landuse xyz"
-        if debug:
-            say(("name ", name))
-
-        # generate pointlist for polygon of the way
+        # generate way polygon points
+        # say("get nodes", way)
         polygon_points = []
-        llpoints = []
-        # say("get nodes", w)
-        for n in w.getiterator("nd"):
-            # say(n.params)
-            m = nodesbyid[n.params["ref"]]
-            llpoints.append([
-                n.params["ref"],
-                m.params["lat"],
-                m.params["lon"]
-            ])
 
-        # elevations
-        # if I use srtm it does not matter for speed if
-        # one point or list, since the list does call the
-        # one point method for all points anyway
-        if elevation:
-            print("    baseheight: {}".format(baseheight))
-            print("    get heights for " + str(len(llpoints)))
-            heights = get_height_list(llpoints)
-            # print(heights)
-        height = None
-        for n in w.getiterator("nd"):
-            p = points[str(n.params["ref"])]
-            # print(p)
-            m = nodesbyid[n.params["ref"]]
-            # print(m.params)
-            hkey = "{:.7f} {:.7f}".format(
-                float(m.params["lat"]),
-                float(m.params["lon"])
-            )
-            # print(hkey)
-            if elevation and building:
-                # for buildings use the height of the first point for all
-                # TODO use 10 cm below the lowest not the first
-                # Why do we get all heights if only use one
-                # but we need them all to get the lowest
-                if height is None:
-                    print("    Building")
-                    print("    No height: {}".format(height))
+        if not elevation:
+            for n in way.getiterator("nd"):
+                wpt = points[str(n.params["ref"])]
+                # say(wpt)
+                polygon_points.append(wpt)
+        else:
+            # get heights for lat lon way polygon points
+            plg_pts_latlon = []
+            for n in way.getiterator("nd"):
+                # say(n.params)
+                m = nodesbyid[n.params["ref"]]
+                plg_pts_latlon.append([
+                    n.params["ref"],
+                    m.params["lat"],
+                    m.params["lon"]
+                ])
+            say("    baseheight: {}".format(baseheight))
+            say("    get heights for " + str(len(plg_pts_latlon)))
+            heights = get_height_list(plg_pts_latlon)
+            # say(heights)
+
+            # set the scaled height for each way polygon point
+            height = None
+            for n in way.getiterator("nd"):
+                wpt = points[str(n.params["ref"])]
+                # say(wpt)
+                m = nodesbyid[n.params["ref"]]
+                # say(m.params)
+                hkey = "{:.7f} {:.7f}".format(
+                    float(m.params["lat"]),
+                    float(m.params["lon"])
+                )
+                # say(hkey)
+                if way_type == "building":
+                    # for buildings use the height of the first point for all
+                    # thus code a bit different from the others
+                    # TODO use 10 cm below the lowest not the first
+                    # Why do we get all heights if only use one
+                    # but we need them all to get the lowest
+                    if height is None:
+                        say("    Building")
+                        if hkey in heights:
+                            say("    height abs: {}".format(heights[hkey]))
+                            height = heights[hkey]
+                            say(heights[hkey])
+                            say("    height rel: {}".format(height))
+                        else:
+                            sayErr("   ---no height in heights for " + hkey)
+                            height = baseheight
+                elif way_type == "highway":
+                    # use the hight for all points
+                    if height is None:
+                        say("    Highway")
                     if hkey in heights:
-                        print("    height abs: {}".format(heights[hkey]))
-                        height = heights[hkey] - baseheight
-                        print(heights[hkey] - baseheight)
-                        print("    height rel: {}".format(height))
+                        height = heights[hkey]
                     else:
                         sayErr("   ---no height in heights for " + hkey)
-                        height = 0
-            elif elevation and highway:
-                # use the real hight for all points
+                        height = baseheight
+                elif way_type == "landuse":
+                    # use 1 mm above base height
+                    if height is None:
+                        sayErr("    ---no height used for landuse ATM")
+                        height = baseheight + 1
+                else:
+                    # use the hight for all points
+                    if height is None:
+                        say("    Other")
+                    if hkey in heights:
+                        height = heights[hkey]
+                    else:
+                        sayErr("   ---no height in heights for " + hkey)
+                        height = baseheight
                 if height is None:
-                    print("    Highway")
-                if hkey in heights:
-                    height = heights[hkey] - baseheight
-                # print("    srmt method: {}".format(heights[hkey]))
-                # print("    height poly: {}".format(height))
-            elif elevation and landuse:
-                if height is None:
-                    sayErr("    ---no height used for landuse ATM")
-                    height = 1
-            elif elevation:
-                # use the real hight for all points
-                if height is None:
-                    print("    Other")
-                if hkey in heights:
-                    height = heights[hkey] - baseheight
-            if height is None:
-                height = 0.0
-            p.z = height
-            # print("    with base: {}".format(p.z))
-            polygon_points.append(p)
+                    height = baseheight
+                wpt.z = height - baseheight
+                # say("    with base: {}".format(wpt.z))
+                polygon_points.append(wpt)
 
-        # create 2D map
+        # create document object out of the way polygon points
         # for p in polygon_points:
-        #    print(p)
-        pp_shape = Part.makePolygon(polygon_points)
-        pp_obj = doc.addObject("Part::Feature", "w_" + wid)
-        pp_obj.Shape = pp_shape
-        # pp_obj.Label = "w_" + wid
+        #    say(p)
+
+        # a wire for each way polygon
+        polygon_shape = Part.makePolygon(polygon_points)
+        polygon_obj = doc.addObject("Part::Feature", "w_" + wid)
+        polygon_obj.Shape = polygon_shape
+        # polygon_obj.Label = "w_" + wid
 
         if name == " ":
             g = doc.addObject("Part::Extrusion", name)
-            g.Base = pp_obj
-            g.ViewObject.ShapeColor = (1.00, 1.00, 0.00)
+            g.Base = polygon_obj
+            g.ViewObject.ShapeColor = (1.0, 1.0, 0.0)
             g.Dir = (0, 0, 10)
             g.Solid = True
             g.Label = "way ex "
 
-        if building:
+        if way_type == "building":
             g = doc.addObject("Part::Extrusion", name)
-            g.Base = pp_obj
-            g.ViewObject.ShapeColor = (1.00, 1.00, 1.00)
-
-            if h == 0:
-                h = 10000
-            g.Dir = (0, 0, h)
+            g.Base = polygon_obj
+            g.ViewObject.ShapeColor = (1.0, 1.0, 1.0)
+            if building_height == 0:
+                building_height = 10000
+            g.Dir = (0, 0, building_height)
             g.Solid = True
             g.Label = name
-            inventortools.setcolors2(g)
+            inventortools.setcolors2(g)  # what does this do?
 
-        if landuse:
+        if way_type == "highway":
+            g = doc.addObject("Part::Extrusion", "highway")
+            g.Base = polygon_obj
+            g.ViewObject.LineColor = (0.0, 0.0, 1.0)
+            g.ViewObject.LineWidth = 10
+            g.Dir = (0, 0, 0.2)
+            g.Label = name
+
+        if way_type == "landuse":
             g = doc.addObject("Part::Extrusion", name)
-            g.Base = pp_obj
+            g.Base = polygon_obj
             if nr == "residential":
-                g.ViewObject.ShapeColor = (1.00, 0.60, 0.60)
+                g.ViewObject.ShapeColor = (1.0, 0.6, 0.6)
             elif nr == "meadow":
-                g.ViewObject.ShapeColor = (0.00, 1.00, 0.00)
+                g.ViewObject.ShapeColor = (0.0, 1.0, 0.0)
             elif nr == "farmland":
-                g.ViewObject.ShapeColor = (0.80, 0.80, 0.00)
+                g.ViewObject.ShapeColor = (0.8, 0.8, 0.0)
             elif nr == "forest":
-                g.ViewObject.ShapeColor = (1.0, 0.40, 0.40)
+                g.ViewObject.ShapeColor = (1.0, 0.4, 0.4)
             g.Dir = (0, 0, 0.1)
             g.Label = name
             g.Solid = True
 
-        if highway:
-            g = doc.addObject("Part::Extrusion", "highway")
-            g.Base = pp_obj
-            g.ViewObject.LineColor = (0.00, 0.00, 1.00)
-            g.ViewObject.LineWidth = 10
-            g.Dir = (0, 0, 0.2)
-            g.Label = name
+
         refresh += 1
-
-        if os.path.exists("/tmp/stop"):
-            sayErr("notbremse gezogen")
-            FreeCAD.w = w
-            raise Exception("Notbremse Manager main loop")
-
-        if refresh > 3:
+        if refresh > 3 and FreeCAD.GuiUp:
             FreeCADGui.updateGui()
             # FreeCADGui.SendMsgToActiveView("ViewFit")
             refresh = 0
 
     # *************************************************************************
     doc.recompute()
-    FreeCADGui.updateGui()
-    doc.recompute()
-
-    if status:
-        status.setText("import finished.")
-    if progressbar:
+    if progressbar and FreeCAD.GuiUp:
         progressbar.setValue(100)
+    if status and FreeCAD.GuiUp:
+        status.setText("import finished.")
+        FreeCADGui.updateGui()
 
     organize_doc(doc)
+    doc.recompute()
 
     endtime = time.time()
     say(("running time ", int(endtime-starttime),  " count ways ", count_ways))
-    doc.recompute()
 
     return True
 
@@ -434,9 +376,9 @@ def get_elebase_sh(corner_min, size, baseheight, tm):
     # it makes no sense to use values smaller than 90'000 mm
     pt_distance = 100000
     
-    print(corner_min)
+    say(corner_min)
     # y is huge!, but this is ok!
-    print(size)
+    say(size)
     
     # base area surface mesh with heights
     # Version new
@@ -475,11 +417,11 @@ def get_elebase_sh(corner_min, size, baseheight, tm):
     )
     # move mesh points z-koord
     for pt_msh in msh.Points:
-        # print(pt_msh.Index)
-        # print(pt_msh.Vector)
+        # say(pt_msh.Index)
+        # say(pt_msh.Vector)
         pt_tm = tm.toGeographic(pt_msh.Vector.x, pt_msh.Vector.y)
         height = get_height_single(pt_tm[0], pt_tm[1])  # mm
-        # print(height)
+        # say(height)
         pt_msh.move(FreeCAD.Vector(0, 0, height))
     # move mesh back centered on origin
     msh.translate(
@@ -493,3 +435,4 @@ def get_elebase_sh(corner_min, size, baseheight, tm):
     sh.makeShapeFromMesh(msh.Topology, 0.1)
 
     return sh
+
