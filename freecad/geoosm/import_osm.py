@@ -24,7 +24,6 @@
 Import data from OpenStreetMap
 """
 
-import os
 import time
 
 import FreeCAD
@@ -32,7 +31,6 @@ import FreeCADGui
 import Part
 
 from freecad.trails.geomatics.geoimport import inventortools
-from freecad.trails.geomatics.geoimport import transversmercator
 
 from freecad.trails.geomatics.geoimport.import_osm import get_elebase_sh
 from freecad.trails.geomatics.geoimport.import_osm import get_ppts_with_heights
@@ -44,13 +42,9 @@ from freecad.trails.geomatics.geoimport.import_osm import set_cam
 
 from freecad.trails.geomatics.geoimport.say import say
 from freecad.trails.geomatics.geoimport.say import sayErr
-from freecad.trails.geomatics.geoimport.say import sayexc
-# from freecad.trails.geomatics.geoimport.say import sayW
 
 # from .get_elevation import get_height_srtm_tkrajina as get_height_single
-# from .get_elevation import get_heights_srtm_tkrajina as get_height_list
 from .get_elevation import get_height_srtm4 as get_height_single
-from .get_elevation import get_heights_srtm4 as get_height_list
 
 """
 # http://api.openstreetmap.org/api/0.6/map?bbox=11.74182,50.16413,11.74586,50.16561
@@ -67,6 +61,12 @@ importlib.reload(import_osm)
 rc = import_osm.import_osm2(50.340722, 11.232647, 0.03, False, False, True)
 
 """
+
+
+# TODO find a way to use this module
+# but import_osm from trails
+# but the height methods from here ???
+# the list heigts method is not used at all from here !!!
 
 
 # TODO: test run osm import method in on non gui
@@ -157,12 +157,12 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
     say("Base area created.")
 
     if elevation:
-        elearea = doc.addObject("Part::Feature","Elevation_Area")
+        elearea = doc.addObject("Part::Feature", "Elevation_Area")
         elearea.Shape = get_elebase_sh(corner_min, size, baseheight, tm)
         doc.recompute()
         if FreeCAD.GuiUp:
             area.ViewObject.hide()
-            elearea.ViewObject.Transparency = 75       
+            elearea.ViewObject.Transparency = 75
             elearea.ViewObject.Document.activeView().viewAxonometric()
             # elearea.ViewObject.Document.activeView().fitAll()  # the cam was set
             FreeCADGui.updateGui()
@@ -267,7 +267,6 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
             g.Label = name
             g.Solid = True
 
-
         refresh += 1
         if refresh > 3 and FreeCAD.GuiUp:
             FreeCADGui.updateGui()
@@ -289,5 +288,3 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
     say(("running time ", int(endtime-starttime),  " count ways ", count_ways))
 
     return True
-
-
