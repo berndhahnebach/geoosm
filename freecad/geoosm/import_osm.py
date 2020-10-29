@@ -202,86 +202,16 @@ def import_osm2(b, l, bk, progressbar=False, status=False, elevation=False):
         name, way_type, nr, building_height = get_way_information(way)
 
         # generate way polygon points
-        # say("get nodes", way)
-        polygon_points = []
-
+        say("get nodes", way)
         if not elevation:
+            polygon_points = []
             for n in way.getiterator("nd"):
                 wpt = points[str(n.params["ref"])]
                 # say(wpt)
                 polygon_points.append(wpt)
         else:
             # get heights for lat lon way polygon points
-            plg_pts_latlon = []
-            for n in way.getiterator("nd"):
-                # say(n.params)
-                m = nodesbyid[n.params["ref"]]
-                plg_pts_latlon.append([
-                    n.params["ref"],
-                    m.params["lat"],
-                    m.params["lon"]
-                ])
-            say("    baseheight: {}".format(baseheight))
-            say("    get heights for " + str(len(plg_pts_latlon)))
-            heights = get_height_list(plg_pts_latlon)
-            # say(heights)
-
-            # set the scaled height for each way polygon point
-            height = None
-            for n in way.getiterator("nd"):
-                wpt = points[str(n.params["ref"])]
-                # say(wpt)
-                m = nodesbyid[n.params["ref"]]
-                # say(m.params)
-                hkey = "{:.7f} {:.7f}".format(
-                    float(m.params["lat"]),
-                    float(m.params["lon"])
-                )
-                # say(hkey)
-                if way_type == "building":
-                    # for buildings use the height of the first point for all
-                    # thus code a bit different from the others
-                    # TODO use 10 cm below the lowest not the first
-                    # Why do we get all heights if only use one
-                    # but we need them all to get the lowest
-                    if height is None:
-                        say("    Building")
-                        if hkey in heights:
-                            say("    height abs: {}".format(heights[hkey]))
-                            height = heights[hkey]
-                            say(heights[hkey])
-                            say("    height rel: {}".format(height))
-                        else:
-                            sayErr("   ---no height in heights for " + hkey)
-                            height = baseheight
-                elif way_type == "highway":
-                    # use the hight for all points
-                    if height is None:
-                        say("    Highway")
-                    if hkey in heights:
-                        height = heights[hkey]
-                    else:
-                        sayErr("   ---no height in heights for " + hkey)
-                        height = baseheight
-                elif way_type == "landuse":
-                    # use 1 mm above base height
-                    if height is None:
-                        sayErr("    ---no height used for landuse ATM")
-                        height = baseheight + 1
-                else:
-                    # use the hight for all points
-                    if height is None:
-                        say("    Other")
-                    if hkey in heights:
-                        height = heights[hkey]
-                    else:
-                        sayErr("   ---no height in heights for " + hkey)
-                        height = baseheight
-                if height is None:
-                    height = baseheight
-                wpt.z = height - baseheight
-                # say("    with base: {}".format(wpt.z))
-                polygon_points.append(wpt)
+            polygon_points = get_ppts_with_heights(way, way_type, points, nodesbyid, baseheight)
 
         # create document object out of the way polygon points
         # for p in polygon_points:
@@ -436,3 +366,79 @@ def get_elebase_sh(corner_min, size, baseheight, tm):
 
     return sh
 
+
+def get_ppts_with_heights(way, way_type, points, nodesbyid, baseheight):
+
+    plg_pts_latlon = []
+    for n in way.getiterator("nd"):
+        # say(n.params)
+        m = nodesbyid[n.params["ref"]]
+        plg_pts_latlon.append([
+            n.params["ref"],
+            m.params["lat"],
+            m.params["lon"]
+        ])
+    say("    baseheight: {}".format(baseheight))
+    say("    get heights for " + str(len(plg_pts_latlon)))
+    heights = get_height_list(plg_pts_latlon)
+    # say(heights)
+    
+    # set the scaled height for each way polygon point
+    height = None
+    polygon_points = []
+    for n in way.getiterator("nd"):
+        wpt = points[str(n.params["ref"])]
+        # say(wpt)
+        m = nodesbyid[n.params["ref"]]
+        # say(m.params)
+        hkey = "{:.7f} {:.7f}".format(
+            float(m.params["lat"]),
+            float(m.params["lon"])
+        )
+        # say(hkey)
+        if way_type == "building":
+            # for buildings use the height of the first point for all
+            # thus code a bit different from the others
+            # TODO use 10 cm below the lowest not the first
+            # Why do we get all heights if only use one
+            # but we need them all to get the lowest
+            if height is None:
+                say("    Building")
+                if hkey in heights:
+                    say("    height abs: {}".format(heights[hkey]))
+                    height = heights[hkey]
+                    say(heights[hkey])
+                    say("    height rel: {}".format(height))
+                else:
+                    sayErr("   ---no height in heights for " + hkey)
+                    height = baseheight
+        elif way_type == "highway":
+            # use the hight for all points
+            if height is None:
+                say("    Highway")
+            if hkey in heights:
+                height = heights[hkey]
+            else:
+                sayErr("   ---no height in heights for " + hkey)
+                height = baseheight
+        elif way_type == "landuse":
+            # use 1 mm above base height
+            if height is None:
+                sayErr("    ---no height used for landuse ATM")
+                height = baseheight + 1
+        else:
+            # use the hight for all points
+            if height is None:
+                say("    Other")
+            if hkey in heights:
+                height = heights[hkey]
+            else:
+                sayErr("   ---no height in heights for " + hkey)
+                height = baseheight
+        if height is None:
+            height = baseheight
+        wpt.z = height - baseheight
+        # say("    with base: {}".format(wpt.z))
+        polygon_points.append(wpt)
+    
+    return polygon_points
