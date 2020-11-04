@@ -44,6 +44,8 @@ rc = import_osm.import_osm2(50.340722, 11.232647, 0.03, False, False, True)
 
 """
 
+# TODO better error message if no internet connection
+
 # TODO find a way to use this module
 # but import_osm from trails
 # but the height methods from here ???
